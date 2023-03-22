@@ -128,7 +128,7 @@ class Algo_new:
 
     def call_obj(self, rsu_idx, task_list: List, seq_num: List[List[int]], is_shared=True):  # 获得每个rsu的目标值
         object_value = 0
-        #queue_latency = 0
+        #queue_latency = 1
         cpu_add_models = {}
         gpu_add_models = {}
         for task in task_list:
