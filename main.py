@@ -1,11 +1,10 @@
 import model_util
-from algo import Algo
 from algo_new import Algo_new
 from data import google_data_util
 import device
 import random
 
-random.seed(1023)
+#random.seed(1023)
 
 default_task_file = "data/600.csv"
 
@@ -77,19 +76,24 @@ def run_algo(rsu_num=20,
              download_rate=550,
              seed=666,
              desc=None):
-    random.seed(seed)
+    #random.seed(seed)
     RSUs = gen_by_random(gpu_ratio, download_rate, max_storage, rsu_rate, rsu_num, is_random=True)
     init_model_deploy = random.uniform(0, 1)
+    print(init_model_deploy)
     rand_rsu_id = random.randint(0, rsu_num - 1)
-    rand_model_index = random.randint(0, len(model_util.Model_name))
-    rand_sub_model_index = random.randint(0, len(model_util.Model_name[rand_model_index]))
+    rand_model_index = random.randint(0, len(model_util.Model_name)-1)
+    rand_sub_model_index = random.randint(0, model_util.Sub_model_num[rand_model_index]-1)
+    print(rand_model_index)
+    print(rand_rsu_id)
+    print(rand_sub_model_index)
     if init_model_deploy <= 0.3:
         # 部署大模型
-        for sub_model_idx in range(model_util.Sub_model_num[rand_sub_model_index]):
-            RSUs[rand_rsu_id].add_model(rand_model_index, sub_model_idx, is_gpu=True)  # 默认部署在cpu
+        for sub_model_idx in range(model_util.Sub_model_num[rand_model_index]):
+            RSUs[rand_rsu_id].add_model(rand_model_index, sub_model_idx, is_gpu=False)  # 默认部署在cpu
     elif 0.3 < init_model_deploy <= 0.6:
         # 部署小模型
-        RSUs[rand_rsu_id].add_model(rand_model_index, rand_sub_model_index, is_gpu=True)
+        RSUs[rand_rsu_id].add_model(rand_model_index, rand_sub_model_index, is_gpu=False)
+    print(RSUs[rand_rsu_id].get_cached_model())
     alg = Algo_new(RSUs)  # 在当前随机生成的RSU数量进行实验
     task_list = google_data_util.process_task(rsu_num, filename, max_latency=max_latency)
     result = []

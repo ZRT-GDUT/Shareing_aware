@@ -128,43 +128,29 @@ class Algo_new:
 
     def call_obj(self, rsu_idx, task_list: List, seq_num: List[List[int]], is_shared=True):  # 获得每个rsu的目标值
         object_value = 0
-        #queue_latency = 2
+        # queue_latency = 2
         cpu_add_models = {}
         gpu_add_models = {}
+        i = 0
         for task in task_list:
             model_idx = task["model_idx"]
             sub_models = task["sub_model"]
             generated_id = task["rsu_id"]
             model = model_util.get_model(model_idx)  # model代表大模型
-            model_name_list = set()
-            rsu_list = set(rsu_idx for rsu_idx in range(self.rsu_num))
-            rsu_list.sort(key=lambda x: self.RSUs[x].rsu_rate)  # 根据RSU之间的通信速率进行排序
-            for sub_model_idx in sub_models:  # 获取当前task所需要的模型
-                model_name_list.add(model_util.get_model_name(model_idx, sub_model_idx))
-            cpu_models_first = self.RSUs[rsu_idx].get_cached_model(is_gpu=False)  # 获取当前RSU的缓存的模型
-            gpu_models_first = self.RSUs[rsu_idx].get_cached_model(is_gpu=True)  # 获取当前RSU的缓存的模型
-            if model_name_list.isdisjoint(cpu_models_first) and model_name_list.isdisjoint(gpu_models_first):
-                # 当前RSU上不存在task对应的model，则从其他RSU上下载
-                download_time_rsu, download_time_cloud = self.init_deployment_rsu_or_cloud(rsu_list, model_name_list, rsu_idx, model_idx)
-            else:
-                # 当前RSU上存在task对应的model
-                inter_rsu_has_model = set()  # 存储RSU存在的task所需要的model
-                download_model = set()
-                if not model_name_list.isdisjoint(cpu_models_first):
-                    #  RSU的cpu存在对应的model
-                    inter_rsu_has_model.add(cpu_models_first.intersection(model_name_list))
-                if not model_name_list.isdisjoint(gpu_models_first):
-                    #  RSU的gpu存在对应的model
-                    inter_rsu_has_model.add(gpu_models_first.intersection(model_name_list))
-                download_model = model_name_list - inter_rsu_has_model
-                download_time_rsu, download_time_cloud = self.init_deployment_rsu_or_cloud(rsu_list, download_model, rsu_idx, model_idx)
-            download_time = download_time_cloud + download_time_rsu
+            download_size = self.RSUs[rsu_idx].cal_extra_caching_size(model_idx, sub_models, is_gpu=False)  # 为何设置为false
+            download_time = download_size / self.RSUs[rsu_idx].download_rate
             _latency = []
             add_gpu_model = []
             for sub_model_idx in sub_models:
+                if sub_model_idx in add_gpu_model:
+                    loading_time = 0
+                else:
+                    loading_size = self.RSUs[rsu_idx].cal_extra_caching_size(model_idx, [sub_model_idx], is_gpu=True)
+                    # loading_time = loading_size / self.RSUs[rsu_idx].gpu_load_rate
+                    loading_time = 0  # 为什么是0
                 device_name, tmp_latency = self.cal_greedy_cpu_gpu(rsu_idx, model_idx, sub_model_idx,
                                                                    seq_num[model_idx][sub_model_idx],
-                                                                   loading_time=0)  # seq_num指代应该使用latency中的哪一项，device_name指的是cpu or gpu
+                                                                   loading_time=loading_time)  # seq_num指代应该使用latency中的哪一项，device_name指的是cpu or gpu
                 _latency.append(tmp_latency)
                 if device_name == "gpu":
                     add_gpu_model.append(sub_model_idx)  # ？？
@@ -179,8 +165,8 @@ class Algo_new:
                 tmp_time = sum(_latency)
             tmp_time = tmp_time + offloading_time + download_time
             object_value = object_value + tmp_time
-            # object_value = object_value + tmp_time + queue_latency
-            # queue_latency = queue_latency + tmp_time
+            #object_value = object_value + tmp_time + queue_latency
+            #queue_latency = queue_latency + tmp_time
             for sub_model_idx in sub_models:
                 seq_num[model_idx][sub_model_idx] += 1
             if model_idx not in cpu_add_models:
