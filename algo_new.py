@@ -296,94 +296,22 @@ class Algo_new:
             return "cpu", cpu_latency
 
     def arr(self, T_max):  # 通过ita算法获取一个task分配方法
-        def arrange_task() -> dict:  # 整合成 model-sub_model: task
-            tasks = {}  # key是model-submodel,value是对应相同key的model
-            for rsu_idx in range(self.rsu_num):
-                for task in self.RSUs[rsu_idx].task_list:
-                    model_idx = task["model_idx"]
-                    sub_models = [str(sub_idx) for sub_idx in task["sub_model"]]
-                    key = "{}-{}".format(model_idx, ",".join(sub_models))
-                    if key not in tasks.keys():
-                        tasks[key] = [task]
-                    else:
-                        tasks[key].append(task)
-            return tasks
+        rsu_list = [i for i in range(self.rsu_num)]
+        x_rsu_tasktype = [[] for _ in range(self.rsu_num)]  # rsu_id:task_type,X_i_e
+        x_rsu_model_structure = [[] for _ in range(self.rsu_num)]  # rsu_id:model_structure,X_i_l
+        for rsu_idx in rsu_list:
+            cpu_model = self.RSUs[rsu_idx].get_cached_model(is_gpu=False)
+            gpu_model = self.RSUs[rsu_idx].get_cached_model(is_gpu=True)
+            if cpu_model:
+                for cpu_model_idx in cpu_model:
+                    x_rsu_tasktype[rsu_idx].append(cpu_model_idx)
+            if gpu_model:
+                for gpu_model_idx in cpu_model:
+                    x_rsu_tasktype[rsu_idx].append(gpu_model_idx)
 
-        tasks = arrange_task()
-        tasks_list = list(tasks.keys())
-        tasks_list.sort()
-        uncompleted_tasks = set(i for i in range(self.get_all_task_num()))
-        rsu_visited = set(rsu_idx for rsu_idx in range(self.rsu_num))
-        throughput = 0
-        record_task_dict = {}
-        seq_num_rsu = []  # 存储model 例如[[0,0,0],[0,0,0],[0,0,0]]
-        rsu_queue_effect = [0 for _ in range(self.rsu_num)]  # 记录每个task在rsu上执行所需要等待的时间
-        for rsu_idx in range(self.rsu_num):
-            self.RSUs[rsu_idx].clear_cached_model()
-            self.RSUs[rsu_idx].queue_latency = 0
-            seq_num_rsu.append(
-                [[0 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))])
-        while len(uncompleted_tasks) != 0 and len(rsu_visited) != 0:
-            temp = 0
-            x_temp = None
-            task_visit = tasks_list.copy()
-            for task_info in task_visit:  # 对每种类型的任务进行遍历
-                visited_order = list(rsu_visited)
-                visited_order.sort(key=lambda x: self.RSUs[x].queue_latency)
-                for rsu_idx in visited_order:
-                    # 先判断能不能加模型，不能加的，就下一个
-                    complete_tasks, cpu_add_models, gpu_add_models, extra_size, extra_queue_latency, used_time = self.add_tasks(
-                        rsu_idx, T_max - sum(rsu_queue_effect), tasks[task_info], seq_num_rsu[rsu_idx], is_shared=True)
-                    if len(complete_tasks.keys()) > temp:
-                        temp = len(complete_tasks.keys())
-                        x_temp = [rsu_idx, complete_tasks, cpu_add_models, gpu_add_models, extra_size,
-                                  extra_queue_latency, used_time]
-                    elif len(complete_tasks.keys()) == temp and x_temp is not None:
-                        if extra_queue_latency < x_temp[5]:
-                            x_temp = [rsu_idx, complete_tasks, cpu_add_models, gpu_add_models, extra_size,
-                                      extra_queue_latency, used_time]
-                # if temp == 0:
-                #     task_visit.remove(task_info)
-            # caching model  Line 21 of algorithm 1
-            if temp == 0:
-                break
-            rsu_idx = x_temp[0]
-            complete_tasks = x_temp[1]
-            cpu_add_models = x_temp[2]
-            gpu_add_models = x_temp[3]
-            extra_size = x_temp[4]
-            extra_queue_latency = x_temp[5]
-            used_time = x_temp[6]
-            rsu_queue_effect[rsu_idx] += used_time
-            # update cache model of RSU according to x_temp
-            for model_idx in cpu_add_models.keys():
-                self.RSUs[rsu_idx].add_all_sub_model(model_idx, list(cpu_add_models[model_idx]), is_gpu=False)
-            for model_idx in gpu_add_models.keys():
-                self.RSUs[rsu_idx].add_all_sub_model(model_idx, list(gpu_add_models[model_idx]), is_gpu=True)
-            # update queue latency
-            self.RSUs[rsu_idx].queue_latency += extra_queue_latency
-            self.RSUs[rsu_idx].task_size += extra_size
-            # update throughput
-            throughput += len(complete_tasks.keys())
-            complete_task_set = set(complete_tasks.keys())
-            uncompleted_tasks = uncompleted_tasks - complete_task_set
-            for key in complete_tasks.keys():
-                record_task_dict[key] = rsu_idx
-            for key in tasks.keys():
-                tmp_visit = tasks[key].copy()
-                for task in tmp_visit:
-                    if task["job_id"] in complete_tasks:
-                        tasks[key].remove(task)
-                if len(tasks[key]) == 0:
-                    del key
-            if rsu_queue_effect[rsu_idx] >= T_max / self.rsu_num:  # 不太理解
-                rsu_visited.remove(rsu_idx)
-            if len(uncompleted_tasks) == 0:
-                break
-        # print("rsu_queue_effect: {}".format(rsu_queue_effect))
-        # print("task_num: {}, len of record_task_dict: {}, uncompleted_task: {}".format(self.get_all_task_num(),
-        #                                                                                len(record_task_dict.keys()),
-        #                                                                                uncompleted_tasks))
+
+
+
         t = self.calculate_objective_value(record_task_dict, is_shared=True)
         object_value = sum(t)
         return throughput, object_value, []
