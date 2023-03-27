@@ -295,19 +295,54 @@ class Algo_new:
         else:
             return "cpu", cpu_latency
 
-    def arr(self, T_max):  # 通过ita算法获取一个task分配方法
+    def arr(self, T_max):  # 通过arr算法获取一个task分配方法
         rsu_list = [i for i in range(self.rsu_num)]
-        x_rsu_tasktype = [[] for _ in range(self.rsu_num)]  # rsu_id:task_type,X_i_e
-        x_rsu_model_structure = [[] for _ in range(self.rsu_num)]  # rsu_id:model_structure,X_i_l
+        x_rsu_tasktype = []
+        x_rsu_tasktype_relax = []
+        x_rsu_model_structure = []
+        x_rsu_model_structure_relax = []
+        x_rsu_to_rsu_model_structure = []
+        x_rsu_to_rsu_model_structure_relax = []
+        y_rsu_task = {}
+        y_rsu_task_relax = {}
+        for job_id in range(self.get_all_task_num()):
+            y_rsu_task[job_id] = -1
+        y_rsu_task_relax = y_rsu_task
+        for rsu_idx in range(self.rsu_num):
+            x_rsu_tasktype.append([[0 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))])  # rsu_id:task_type,X_i_e  [[],[],[],[]...,[]]
+            x_rsu_model_structure.append([[0 for _ in range(model_util.Sub_Model_Structure[i])] for i in range(len(model_util.Model_name))])  # rsu_id:model_structure,α_i_l
+            x_rsu_to_rsu_model_structure.append([[[0 for _ in range(model_util.Sub_Model_Structure[i])] for i in range(len(model_util.Model_name))] for i in range(self.rsu_num)])  # β_l_i'_i
+        x_rsu_tasktype_relax = x_rsu_tasktype
+        x_rsu_model_structure_relax = x_rsu_model_structure
+        x_rsu_to_rsu_model_structure_relax = x_rsu_to_rsu_model_structure
         for rsu_idx in rsu_list:
-            cpu_model = self.RSUs[rsu_idx].get_cached_model(is_gpu=False)
-            gpu_model = self.RSUs[rsu_idx].get_cached_model(is_gpu=True)
-            if cpu_model:
-                for cpu_model_idx in cpu_model:
-                    x_rsu_tasktype[rsu_idx].append(cpu_model_idx)
-            if gpu_model:
-                for gpu_model_idx in cpu_model:
-                    x_rsu_tasktype[rsu_idx].append(gpu_model_idx)
+            cpu_models = self.RSUs[rsu_idx].get_cached_model(is_gpu=False)
+            gpu_models = self.RSUs[rsu_idx].get_cached_model(is_gpu=True)
+            if cpu_models:  # 判断rsu是否部署了模型
+                for cpu_model in cpu_models:
+                    model_idx, sub_model_idx = model_util.get_model_info(cpu_model)
+                    x_rsu_tasktype[rsu_idx][model_idx][sub_model_idx] = 1
+                    x_rsu_tasktype_relax[rsu_idx][model_idx].remove(sub_model_idx)
+                    model = model_util.get_model(model_idx)
+                    for model_structure_idx in model.require_sub_model[sub_model_idx]:
+                        x_rsu_model_structure[rsu_idx][model_idx][model_structure_idx] = 1
+                        x_rsu_model_structure_relax[rsu_idx][model_idx][model_structure_idx] = None
+                        for other_rsu_idx in rsu_list:
+                            x_rsu_to_rsu_model_structure[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = 0
+                            x_rsu_to_rsu_model_structure_relax[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = None
+            if gpu_models:
+                for gpu_model in gpu_models:
+                    model_idx, sub_model_idx = model_util.get_model_info(gpu_model)
+                    x_rsu_tasktype[rsu_idx][model_idx][sub_model_idx] = 1
+                    x_rsu_tasktype_relax[rsu_idx][model_idx].remove(sub_model_idx)
+                    model = model_util.get_model(model_idx)
+                    for model_structure_idx in model.require_sub_model[sub_model_idx]:
+                        x_rsu_model_structure[rsu_idx][model_idx][model_structure_idx] = 1
+                        x_rsu_model_structure_relax[rsu_idx][model_idx][model_structure_idx] = None
+                        for other_rsu_idx in rsu_list:
+                            x_rsu_to_rsu_model_structure[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = 0
+                            x_rsu_to_rsu_model_structure_relax[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = None
+
 
 
 
@@ -315,7 +350,7 @@ class Algo_new:
         t = self.calculate_objective_value(record_task_dict, is_shared=True)
         object_value = sum(t)
         return throughput, object_value, []
-
+    def generate_solutions(self,  x_rsu_tasktype_relax, x_rsu_model_structure_relax, x_rsu_to_rsu_model_structure_relax, ):
     def add_tasks(self, rsu_idx, max_latency, task_list: List, seq_num: List[List[int]],
                   is_shared=True):  # 被ita调用，只是判断能不能添加，并不是真的添加
         complete_tasks = {}

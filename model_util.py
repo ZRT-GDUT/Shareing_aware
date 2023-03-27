@@ -7,6 +7,7 @@ from typing import List, Set
 
 Model_name = ["HuangModel", "ChenModel", "Georgescu"]
 Sub_model_num = [4, 3, 4]
+Sub_Model_Structure = [5, 5, 6]
 
 
 def get_model_name(model_idx, sub_model_idx):
