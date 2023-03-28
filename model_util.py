@@ -13,6 +13,9 @@ Sub_Model_Structure = [5, 5, 6]
 def get_model_name(model_idx, sub_model_idx):
     return "{}-{}".format(model_idx, sub_model_idx)
 
+def get_model_structure(model_idx, model_structure_idx):
+    model = get_model(model_idx)
+    return model.sub_model_size(model_structure_idx)
 
 def get_model_info(model_info: str):
     info = model_info.split("-")

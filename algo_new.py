@@ -3,12 +3,13 @@ from typing import List, Dict
 
 import device
 import model_util
+import pulp as pl
 
 
 class Algo_new:
 
     def __init__(self, RSUs: List[device.RSU]):
-        self.RSUs = RSUs
+        self.RSUs = RSUs#6
         self.rsu_num = len(RSUs)
 
     def set_RSUs(self, RSUs: List[device.RSU]):
@@ -328,8 +329,8 @@ class Algo_new:
                         x_rsu_model_structure[rsu_idx][model_idx][model_structure_idx] = 1
                         x_rsu_model_structure_relax[rsu_idx][model_idx][model_structure_idx] = None
                         for other_rsu_idx in rsu_list:
-                            x_rsu_to_rsu_model_structure[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = 0
-                            x_rsu_to_rsu_model_structure_relax[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = None
+                            x_rsu_to_rsu_model_structure[rsu_idx][other_rsu_idx][model_idx][model_structure_idx] = 0
+                            x_rsu_to_rsu_model_structure_relax[rsu_idx][other_rsu_idx][model_idx][model_structure_idx] = None
             if gpu_models:
                 for gpu_model in gpu_models:
                     model_idx, sub_model_idx = model_util.get_model_info(gpu_model)
@@ -340,9 +341,19 @@ class Algo_new:
                         x_rsu_model_structure[rsu_idx][model_idx][model_structure_idx] = 1
                         x_rsu_model_structure_relax[rsu_idx][model_idx][model_structure_idx] = None
                         for other_rsu_idx in rsu_list:
-                            x_rsu_to_rsu_model_structure[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = 0
-                            x_rsu_to_rsu_model_structure_relax[other_rsu_idx][rsu_idx][model_idx][model_structure_idx] = None
-
+                            x_rsu_to_rsu_model_structure[rsu_idx][other_rsu_idx][model_idx][model_structure_idx] = 0
+                            x_rsu_to_rsu_model_structure_relax[rsu_idx][other_rsu_idx][model_idx][model_structure_idx] = None
+        max_system_throughput = pl.LpProblem("max_system_throughput", sense=pl.LpMaximize)  # 定义最大化吞吐率问题
+        model_num = model_util.Sub_model_num[0] + model_util.Sub_model_num[1] + model_util.Sub_model_num[2]
+        x_i_e = pl.LpVariable.dict("x_i_e", (self.rsu_num, len(model_util.Model_name), model_util.Sub_model_num[0]),cat='Continuous')
+        x_i_l = pl.LpVariable.dict("x_i_l", (self.rsu_num, len(model_util.Model_name), model_util.Sub_Model_Structure[2]),cat='Continuous')
+        x_i_i_l = pl.LpVariable.dict("x_i_i_l", (self.rsu_num, self.rsu_num, len(model_util.Model_name), model_util.Sub_Model_Structure[2]), cat='Continuous')
+        y_i_jk = pl.LpVariable.dict("y_i_jk", (self.rsu_num, self.get_all_task_num()), cat='Continuous')
+        for rsu_idx_lp in range(self.rsu_num):
+            for other_rsu_idx_lp in range(self.rsu_num):
+                max_system_throughput += (pl.lpSum((model_util.get_model(model_idx).single_task_size * y_i_jk[rsu_idx_lp, job_id_lp]/self.RSUs[rsu_idx_lp]
+                                               for job_id_lp in range(self.get_all_task_num())) for model_idx in range(len(model_util.Model_name)))
+                                          + pl.lpSum(x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] * model_util.get_model_structure()))
 
 
 
