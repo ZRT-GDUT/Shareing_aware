@@ -8,6 +8,9 @@ from typing import List, Set
 Model_name = ["HuangModel", "ChenModel", "Georgescu"]
 Sub_model_num = [4, 3, 4]
 Sub_Model_Structure = [5, 5, 6]
+Sub_Model_Structure_Size = [179.2257156, 49.20232773, 0.00195694, 49.20232773, 206.0307236,
+                            161.1276855, 47.32210541, 2.297855377, 2.427921295, 3.480670929,
+                            1.591918945, 1.591918945, 0.071289063, 0.071289063, 0.143920898, 0.071289063]
 
 
 def get_model_name(model_idx, sub_model_idx):
