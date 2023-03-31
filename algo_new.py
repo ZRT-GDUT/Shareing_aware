@@ -206,7 +206,7 @@ class Algo_new:
         total_task_num = self.get_all_task_num()
         last_t_max = T_max
         while T_max - T_min >= min_gap:
-            throughput, object_value, _ = self.arr(T_max, model_idx_jobid_list)
+            throughput, object_value, _ = self.arr(T_max, model_idx_jobid_list, task_list)
             # print("throughput: {}, total: {}".format(throughput, total_task_num))
             # print("T_max: {}, T_min: {}\n".format(T_max, T_min))
             last_t_min = T_min
@@ -304,24 +304,38 @@ class Algo_new:
         else:
             return "cpu", cpu_latency
 
-    def arr(self, T_max, model_idx_jobid_list):  # 通过arr算法获取一个task分配方法
+    def arr(self, T_max, model_idx_jobid_list, task_list):  # 通过arr算法获取一个task分配方法
         rsu_list = [i for i in range(self.rsu_num)]
         rsu_list_structure = [i for i in range(self.rsu_num+1)]  # index=rsu_num denotes cloud
+        x_task_structure = [[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in range(self.get_all_task_num())]
         x_rsu_tasktype = []
         x_rsu_tasktype_relax = []
         x_rsu_model_structure = []
         x_rsu_model_structure_relax = []
         x_rsu_to_rsu_model_structure = []
         x_rsu_to_rsu_model_structure_relax = []
+        x_structure_model = [[[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in range(model_util.Sub_model_num[i])]
+                      for i in range(len(model_util.Model_name))]  # 用来定义每个model需要哪些structure
         y_rsu_task = {}
         y_rsu_task_relax = {}
+        for task in task_list:
+            task_job_id = task["job_id"]
+            task_structure = task["model_structure"]
+            for task_structure_idx in task_structure:
+                x_task_structure[task_job_id][task_structure_idx] = 1
+        for model_idx in range(len(model_util.Model_name)):
+            for sub_model_idx in range(model_util.Sub_model_num[model_idx]):
+                model_structure = model_util.get_model(model_idx).require_sub_model_all[sub_model_idx]
+                for model_structure_idx in model_structure:
+                    x_structure_model[model_idx][sub_model_idx][model_structure_idx] = 1
+        print('x_structure_model:', x_structure_model)
         for job_id in range(self.get_all_task_num()):
             y_rsu_task[job_id] = -1
         y_rsu_task_relax = y_rsu_task
         for rsu_idx in range(self.rsu_num):
             x_rsu_tasktype.append([[0 for _ in range(model_util.Sub_model_num[i])] for i in range(len(model_util.Model_name))])  # rsu_id:task_type,X_i_e  [[],[],[],[]...,[]]
             x_rsu_model_structure.append([0 for _ in range(len(model_util.Sub_Model_Structure_Size))])  # rsu_id:model_structure,α_i_l
-        for rsu_idx in range(self.rsu_num+1):
+        for rsu_idx in range(self.rsu_num+1):  # 多一个cloud
             x_rsu_to_rsu_model_structure.append([[0 for _ in range(len(model_util.Sub_Model_Structure_Size))] for _ in range(self.rsu_num)])  # β_l_i'_i
         x_rsu_tasktype_relax = x_rsu_tasktype
         x_rsu_model_structure_relax = x_rsu_model_structure
@@ -377,27 +391,30 @@ class Algo_new:
             max_system_throughput  += (pl.lpSum(x_i_i_l[self.rsu_num, rsu_idx_lp, model_structure_idx_lp] * model_util.Sub_Model_Structure_Size[model_structure_idx_lp]
                                                 / self.RSUs[rsu_idx].download_rate for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size))) <= T_max)  # Constraint(35)
         for job_id_lp in range(self.get_all_task_num()):
-            max_system_throughput += (pl.lpSum(y_i_jk[rsu_idx][job_id_lp] for rsu_idx_lp in range(self.rsu_num)) <= 1)  # Constraint(37)
+            max_system_throughput += (pl.lpSum(y_i_jk[rsu_idx, job_id_lp] for rsu_idx_lp in range(self.rsu_num)) <= 1)  # Constraint(37)
         for rsu_idx_lp in range(self.rsu_num):
-            max_system_throughput += (pl.lpSum((x_i_i_l[other_rsu_idx_lp,  rsu_idx_lp, model_structure_idx_lp] * model_util.Sub_Model_Structure_Size[model_structure_idx_lp]
-                                               for other_rsu_idx_lp in range(self.rsu_num))) for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size)) +
+            max_system_throughput += (pl.lpSum(((x_i_i_l[other_rsu_idx_lp,  rsu_idx_lp, model_structure_idx_lp] * model_util.Sub_Model_Structure_Size[model_structure_idx_lp]
+                                               for other_rsu_idx_lp in range(self.rsu_num))) for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size))) +
                                       pl.lpSum(y_i_jk[rsu_idx_lp, job_id_lp] * model_util.get_model(model_idx_jobid_list[job_id_lp]).single_task_size
-                                               for job_id_lp in range(self.get_all_task_num())))  # Constraint(14)
+                                               for job_id_lp in range(self.get_all_task_num())) <= self.RSUs[rsu_idx_lp].storage_capacity)  # Constraint(14)
         for rsu_idx_lp in range(self.rsu_num+1):
-            for other_rsu_idx_lp in (self.rsu_num):
+            for other_rsu_idx_lp in range(self.rsu_num):
                 for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size)):
-                max_system_throughput += (x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] <= x_i_l[rsu_idx_lp, model_structure_idx_lp])  # Constraint(16)
+                    max_system_throughput += (x_i_i_l[rsu_idx_lp, other_rsu_idx_lp, model_structure_idx_lp] <= x_i_l[rsu_idx_lp, model_structure_idx_lp])  # Constraint(16)
         for rsu_idx_lp in range(self.rsu_num):
             for model_idx_lp in range(len(model_util.Model_name)):
-                for sub_model_idx_lp in range(model_util.Sub_model_num[model_idx_lp]):  # Constraint(17)
-                    max_system_throughput += ()
+                for sub_model_idx_lp in range(model_util.Sub_model_num[model_idx_lp]):
+                    for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size)):
+                        max_system_throughput += ((x_structure_model[model_idx_lp][sub_model_idx_lp][model_structure_idx_lp] * x_i_e[rsu_idx_lp, model_idx_lp, sub_model_idx_lp]) <=
+                                                  pl.lpSum(x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] for other_rsu_idx_lp in range(self.rsu_num+1)))  # Constraint(17)
         for rsu_idx_lp in range(self.rsu_num):
             for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size)):
-                max_system_throughput += pl.lpSum(x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] for other_rsu_idx_lp in range(self.rsu_num+1) <= 1)  # Constraint(18)
-        # for rsu_idx_lp in range(self.rsu_num):
-        #     for model_idx_lp in range(len(model_util.Model_name)):
-        #         for sub_model_idx_lp in range(model_util.Sub_model_num[model_idx_lp]):
-        #             max_system_throughput += ()
+                max_system_throughput += (pl.lpSum(x_i_i_l[other_rsu_idx_lp, rsu_idx_lp, model_structure_idx_lp] for other_rsu_idx_lp in range(self.rsu_num+1)) <= 1)  # Constraint(18)
+        for rsu_idx_lp in range(self.rsu_num):
+            for job_id_lp in range(self.get_all_task_num()):
+                for model_structure_idx_lp in range(len(model_util.Sub_Model_Structure_Size)):
+                    max_system_throughput += (y_i_jk[rsu_idx_lp, job_id_lp] * x_task_structure[job_id_lp][model_structure_idx_lp]
+                                              <= x_i_l[rsu_idx_lp, model_structure_idx_lp])  # Constraint(19)
 
 
 

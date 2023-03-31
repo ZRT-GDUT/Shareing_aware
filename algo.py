@@ -140,7 +140,7 @@ class Algo:
             object_value = object_value + tmp_time + queue_latency
             queue_latency = queue_latency + tmp_time
             for sub_model_idx in sub_models:
-                seq_num[model_idx][sub_model_idx] += 1
+                seq_num[model_idx][sub_model_idx] += 1  # 为什么每次加1
             if model_idx not in cpu_add_models:
                 cpu_add_models[model_idx] = set(sub_models)  #？？129
             else:

@@ -82,7 +82,9 @@ def process_task(rsu_num, filename, max_sub_task_num=10, max_latency=50) -> List
         task_num = min([max_sub_task_num, model_util.Sub_model_num[info["model_idx"]]])
         info["sub_model"] = get_request_type(task_num)
         info["latency"] = random.uniform(max_latency * 0.8, max_latency)
+        info["model_structure"] = model_util.get_model(info["model_idx"]).get_sub_module_by_model_idx_all(info["sub_model"])
         task_lists.append(info)
+    print(task_lists[1]['job_id'])
     return task_lists
 
 

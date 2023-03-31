@@ -79,13 +79,9 @@ def run_algo(rsu_num=20,
     #random.seed(seed)
     RSUs = gen_by_random(gpu_ratio, download_rate, max_storage, rsu_rate, rsu_num, is_random=True)
     init_model_deploy = random.uniform(0, 1)
-    print(init_model_deploy)
     rand_rsu_id = random.randint(0, rsu_num - 1)
     rand_model_index = random.randint(0, len(model_util.Model_name)-1)
     rand_sub_model_index = random.randint(0, model_util.Sub_model_num[rand_model_index]-1)
-    print(rand_model_index)
-    print(rand_rsu_id)
-    print(rand_sub_model_index)
     if init_model_deploy <= 0.3:
         # 部署大模型
         for sub_model_idx in range(model_util.Sub_model_num[rand_model_index]):

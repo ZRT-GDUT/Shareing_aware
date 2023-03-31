@@ -90,6 +90,14 @@ class BaseMethod:
                 sub_model_idx.add(idx)
         return sub_model_idx
 
+    def get_sub_module_by_model_idx_all(self, model_idxs: Set[int]):
+        sub_model_idx = set()
+        for model_idx in model_idxs:
+            models = self.require_sub_model_all[model_idx]
+            for idx in models:
+                sub_model_idx.add(idx)
+        return sub_model_idx
+
     def get_extra_model_new_size(self, cached_model: Set[int], new_sub_model_idx: int):
         new_cached_model = cached_model.copy()
         new_cached_model.add(new_sub_model_idx)
@@ -128,6 +136,7 @@ class HuangModel(BaseMethod):
         self.tasks = [[0], [1], [2], [3]]
         self.sub_model_size = [179.2257156, 49.20232773, 0.00195694, 49.20232773, 206.0307236]  # 每一层的大小
         self.require_sub_model = [[0, 1], [0, 2], [0, 3], [0, 4]]  # 需要哪些层
+        self.require_sub_model_all = [[0, 1], [0, 2], [0, 3], [0, 4]]  # 需要哪些层
         self.single_task_size = Bytes2Mb(get_image_size(112, 112, 3))
         self.latency = [
              #  每一个元素中有四项分别代表着使用哪一个cpu或gpu
@@ -164,6 +173,7 @@ class ChenModel(BaseMethod):
         self.model_name = ["SC", "SE", "SR"]
         self.tasks = [[0], [1], [2]]
         self.require_sub_model = [[0, 2], [0, 1, 3], [0, 1, 4]]
+        self.require_sub_model_all = [[5, 7], [5, 6, 8], [5, 6, 9]]
         self.sub_model_size = [161.1276855, 47.32210541, 2.297855377, 2.427921295, 3.480670929]
         self.single_task_size = Bytes2Mb(get_image_size(416, 416, 3))
         self.latency = [
@@ -194,6 +204,7 @@ class Georgescu(BaseMethod):
         self.model_name = ["task1", "task2", "task3", "task4"]
         self.tasks = [[0], [1], [2], [3]]
         self.require_sub_model = [[0, 2], [0, 3], [1, 4], [1, 5]]
+        self.require_sub_model_all = [[10, 12], [10, 13], [11, 14], [11, 15]]
         self.sub_model_size = [1.591918945, 1.591918945, 0.071289063, 0.071289063, 0.143920898, 0.071289063]
         self.single_task_size = Bytes2Mb(7 * get_image_size(64, 64, 3))
         self.latency = [
