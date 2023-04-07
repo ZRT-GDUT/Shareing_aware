@@ -90,6 +90,7 @@ def run_algo(rsu_num=20,
         # 部署小模型
         RSUs[rand_rsu_id].add_model(rand_model_index, rand_sub_model_index, is_gpu=False)
     print(RSUs[rand_rsu_id].get_cached_model())
+    print(rand_rsu_id)
     alg = Algo_new(RSUs)  # 在当前随机生成的RSU数量进行实验
     task_list = google_data_util.process_task(rsu_num, filename, max_latency=max_latency)
     result = []
