@@ -23,7 +23,12 @@ class RSU:
         self.gpu_idx = -1   # -1, no-gpu, 0, 1: gpu_type_idx
         if random.uniform(0, 1) < gpu_ratio:  #
             self.gpu_idx = get_device_id(random.randint(0, 1), is_gpu=True)
-        self.cpu_idx = get_device_id(random.randint(0, 1), is_gpu=False)
+            self.has_gpu = True
+            self.has_cpu = False
+        else:
+            self.cpu_idx = get_device_id(random.randint(0, 1), is_gpu=False)
+            self.has_gpu = False
+            self.has_cpu = True
         self.trans_cpu_gpu = 16 * 1024  # Gbps
         # storage
         self.storage_capacity = random.uniform(300, max_storage)  # to do ...
@@ -49,20 +54,20 @@ class RSU:
         """
         return self.storage_capacity - self.cal_caching_size(is_gpu=False) - self.cal_caching_size(is_gpu=True)
 
-    def cal_caching_size(self, is_gpu=False):
+    def cal_caching_size(self):
         """
         :return: the caching size of inference in CPU or GPU.
         """
-        cached_model = self.get_cached_model(is_gpu=is_gpu)
+        cached_model = self.get_cached_model()
         return self.__cal_cache_size(cached_model)
 
-    def get_cached_model(self, is_gpu=False) -> set:
+    def get_cached_model(self) -> set:
         """
         get the cached model in CPU (default) or GPU
         :param is_gpu:
         :return:
         """
-        if is_gpu:
+        if self.has_gpu:
             return self.__caching_model_list_gpu.copy()
         else:
             return self.__caching_model_list.copy()
@@ -82,7 +87,7 @@ class RSU:
             model_size += model.require_model_size(model_idxs, is_share=True)
         return model_size
 
-    def cal_extra_caching_size(self, model_idx, sub_models: List[int], is_gpu=False):
+    def cal_extra_caching_size(self, model_idx, sub_models: List[int]):
         """
         calculate the cache size when model_idx[sub_models] are added.
         :param model_idx:
@@ -90,8 +95,8 @@ class RSU:
         :param is_gpu:
         :return:
         """
-        pre_model_size = self.cal_caching_size(is_gpu=is_gpu)  # 获得已缓存模型的size
-        models = self.get_cached_model(is_gpu=is_gpu) # 获取已缓存模型
+        pre_model_size = self.cal_caching_size()  # 获得已缓存模型的size
+        models = self.get_cached_model() # 获取已缓存模型
         for sub_model_idx in sub_models:
             model_name = model_util.get_model_name(model_idx, sub_model_idx)
             models.add(model_name)
