@@ -11,6 +11,7 @@ import model_util
 class RSU:
     def __init__(self, gpu_ratio=0.5, max_storage=1200, download_rate=None, rsu_rate=None):
         # transmission rate
+        self.seq_num = [[0 for _ in range(model_util.Sub_model_num[i])]for i in range(len(model_util.Model_name))]
         if download_rate is None:
             self.download_rate = random.uniform(450, 550)  # Mbps
         else:
@@ -116,7 +117,7 @@ class RSU:
                 add_success_models.append(sub_model_idx)
         return add_success_models
 
-    def add_model(self, model_idx, sub_model_idx, is_gpu=False):
+    def add_model(self, model_idx, sub_model_idx):
         """
         :param model_idx:
         :param sub_model_idx:
@@ -124,20 +125,22 @@ class RSU:
         :return: true-> add a new model, false-> model has been added.
         """
         model_name = model_util.get_model_name(model_idx, sub_model_idx)
-        if is_gpu:
+        if self.has_gpu:
             size = len(self.__caching_model_list_gpu)
             self.__caching_model_list_gpu.add(model_name)  # 没有理解，意思是gpu有了，cpu有一样的model就要删除吗
-            if self.has_model(model_idx, sub_model_idx, is_gpu=False):
-                self.remove_model(model_idx, sub_model_idx, is_gpu=False)
+            # if self.has_model(model_idx, sub_model_idx):
+            #     self.remove_model(model_idx, sub_model_idx)
             return len(self.__caching_model_list_gpu) - size != 0
         else:
-            size = len(self.__caching_model_list_gpu)  # 为什么这里是获得gpu的model数量
+            size = len(self.__caching_model_list)  # 为什么这里是获得gpu的model数量
             self.__caching_model_list.add(model_name)
+            # if self.has_model(model_idx, sub_model_idx):
+            #     self.remove_model(model_idx, sub_model_idx)
             return len(self.__caching_model_list) - size != 0
 
-    def has_model(self, model_idx, sub_model_idx, is_gpu=False):
+    def has_model(self, model_idx, sub_model_idx):
         model_name = model_util.get_model_name(model_idx, sub_model_idx)
-        if is_gpu:
+        if self.has_gpu:
             return model_name in self.__caching_model_list_gpu
         else:
             return model_name in self.__caching_model_list
@@ -152,7 +155,7 @@ class RSU:
         for sub_model_idx in sub_models:
             self.remove_model(model_idx, sub_model_idx, is_gpu=is_gpu)
 
-    def remove_model(self, model_idx, sub_model_idx, is_gpu=False):
+    def remove_model(self, model_idx, sub_model_idx):
         """
         remove model_idx-sub_model_idx in RSU
         :param model_idx:
@@ -160,7 +163,7 @@ class RSU:
         :return:
         """
         model_name = model_util.get_model_name(model_idx, sub_model_idx)
-        if is_gpu:
+        if self.has_gpu:
             self.__caching_model_list_gpu.remove(model_name)
         else:
             self.__caching_model_list.remove(model_name)

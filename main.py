@@ -82,13 +82,13 @@ def run_algo(rsu_num=20,
     rand_rsu_id = random.randint(0, rsu_num - 1)
     rand_model_index = random.randint(0, len(model_util.Model_name)-1)
     rand_sub_model_index = random.randint(0, model_util.Sub_model_num[rand_model_index]-1)
-    if init_model_deploy <= 0.3:
+    if init_model_deploy <= 1/3:
         # 部署大模型
         for sub_model_idx in range(model_util.Sub_model_num[rand_model_index]):
-            RSUs[rand_rsu_id].add_model(rand_model_index, sub_model_idx, is_gpu=False)  # 默认部署在cpu
-    elif 0.3 < init_model_deploy <= 0.6:
+            RSUs[rand_rsu_id].add_model(rand_model_index, sub_model_idx)  # 默认部署在cpu
+    elif 1/3 < init_model_deploy <= 2/3:
         # 部署小模型
-        RSUs[rand_rsu_id].add_model(rand_model_index, rand_sub_model_index, is_gpu=False)
+        RSUs[rand_rsu_id].add_model(rand_model_index, rand_sub_model_index)
     print("rand_rsu_id.get_cached_model:", RSUs[rand_rsu_id].get_cached_model())
     alg = Algo_new(RSUs)  # 在当前随机生成的RSU数量进行实验
     task_list = google_data_util.process_task(rsu_num, filename, max_latency=max_latency)
