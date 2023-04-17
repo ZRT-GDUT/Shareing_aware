@@ -383,25 +383,26 @@ class Algo_new:
             #                 x_rsu_to_rsu_model_structure[other_rsu_idx][rsu_idx][model_structure_idx] = 0
             #                 x_rsu_to_rsu_model_structure_relax[other_rsu_idx][rsu_idx][model_structure_idx] = None
         max_system_throughput = pl.LpProblem("max_system_throughput", sense=pl.LpMaximize)  # 定义最大化吞吐率问题
-        print(rand_model_structure_idx, 6)
-        print(rand_sub_model_idx)
-        print(rand_rsu_id, 6)
-        print(rand_model_idx)
+        print("rand_model_structure_idx:", rand_model_structure_idx)
+        print("rand_sub_model_idx:", rand_sub_model_idx)
+        print("rand_rsu_id:", rand_rsu_id)
+        print("rand_model_idx:", rand_model_idx)
         x_i_e = {(i, m, s): pl.LpVariable('x_i_e_{0}_{1}_{2}'.format(i, m, s), lowBound=0, upBound=1,
                                           cat=pl.LpContinuous)
                  for i in range(self.rsu_num)
                  for m in range(len(model_util.Model_name))
                  for s in range(model_util.Sub_model_num[m])}
         for sub_model_idx in rand_sub_model_idx:
-            x_i_e[rand_rsu_id, rand_model_idx, sub_model_idx].fixValue(1)
+            x_i_e[(rand_rsu_id, rand_model_idx, sub_model_idx)].lowBound = 1
+            x_i_e[(rand_rsu_id, rand_model_idx, sub_model_idx)].upBound = 1
 
         x_i_l = {(i, l): pl.LpVariable('x_i_l_{0}_{1}'.format(i, l),
                                        lowBound=0, upBound=1, cat=pl.LpContinuous)
                  for i in range(self.rsu_num + 1)
                  for l in range(len(model_util.Sub_Model_Structure_Size))}
         for model_structure_idx in rand_model_structure_idx:
-            var = x_i_l[(rand_rsu_id, model_structure_idx)]
-            var.fixValue(1)
+            x_i_l[rand_rsu_id, model_structure_idx].lowBound = 1
+            x_i_l[rand_rsu_id, model_structure_idx].upBound = 1
 
         x_i_i_l = {(i, j, l): pl.LpVariable('x_i_i_l_{0}_{1}_{2}'.format(i, j, l), lowBound=0, upBound=1,
                                             cat=pl.LpContinuous)
@@ -410,8 +411,8 @@ class Algo_new:
                    for l in range(len(model_util.Sub_Model_Structure_Size))}
         for other_rsu_idx in range(self.rsu_num + 1):
             for model_structure_idx in rand_model_structure_idx:
-                var = x_i_i_l[(other_rsu_idx, rand_rsu_id, model_structure_idx)]
-                var.fixValue(0)
+                x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].lowBound = 0
+                x_i_i_l[other_rsu_idx, rand_rsu_id, model_structure_idx].upBound = 0
 
         y_i_jk = {(i, j): pl.LpVariable('y_i_jk_{0}_{1}'.format(i, j), lowBound=0, upBound=1, cat=pl.LpContinuous)
                   for i in range(self.rsu_num)
@@ -530,6 +531,10 @@ class Algo_new:
         for v in y_i_jk.values():
             print(v.name, "=", v.varValue)
         for v in x_i_i_l.values():
+            print(v.name, "=", v.varValue)
+        for v in x_i_e.values():
+            print(v.name, "=", v.varValue)
+        for v in x_i_l.values():
             print(v.name, "=", v.varValue)
         print('objective =', pl.value(max_system_throughput.objective))
         t = self.calculate_objective_value(record_task_dict, is_shared=True)
